@@ -24,24 +24,31 @@ const app = {
   logFile: path.join(__dirname, '../../../logs/combined.log'),
 
   /**
+   * Type de sortie de log (JSON ou NORMAL)
+   * @type {string}
+   */
+  logType: 'JSON',
+
+  /**
    * Liste de proxys pour rebond vers PFD
    * @type {object[]}
    */
-  proxies: [{
+  proxies: [
+    {
       address: 'M57355',
-      port: '8888'
+      port: '8888',
     },
     {
       address: 'M57341',
-      port: '8888'
+      port: '8888',
     },
     {
       address: 'M57244',
-      port: '8888'
+      port: '8888',
     },
     {
       address: 'M54683',
-      port: '8888'
+      port: '8888',
     },
   ],
 

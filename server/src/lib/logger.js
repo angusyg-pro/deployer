@@ -1,7 +1,12 @@
 /**
  * @fileoverview Logger applicatif de mise en forme des logs
  * @module lib/logger
+ * @requires {@link external:moment}
+ * @requires config/app
  */
+
+const moment = require('moment');
+const { logType } = require('../config/app');
 
 const logger = {};
 
@@ -26,12 +31,15 @@ const formatMessage = (level, message, ...args) => {
     if (stack[1]) pre = `${pre}[${stack[1]}(${args && args.length > 0 ? JSON.stringify(args) : ''})]: `;
     else pre = `${pre}: `;
   }
-  return JSON.stringify({
-    level,
-    date: new Date().getTime(),
-    message: `${pre}${message}`,
-    pid: process.pid,
-  });
+  if (logType === 'JSON') {
+    return JSON.stringify({
+      level,
+      date: new Date().getTime(),
+      message: `${pre}${message}`,
+      pid: process.pid,
+    });
+  }
+  return `${moment().format('DD/MM/YYYY HH:mm:ss')} - ${level} - ${pre}${message}}`;
 };
 
 /**
