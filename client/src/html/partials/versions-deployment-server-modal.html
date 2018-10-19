@@ -1,0 +1,17 @@
+<div id="versions-deployment-modal">
+  <div class="modal-header text-white" ng-class="{'bg-success': versionsDeploymentModal.server.status === 'SUCCEED', 'bg-danger': versionsDeploymentModal.server.status === 'FAILED', 'bg-primary': versionsDeploymentModal.server.status === 'IN-PROGRESS', 'bg-warning': versionsDeploymentModal.server.status === 'PENDING' }">
+    <h3 class="modal-title" id="modal-title">Log du déploiement du serveur {{versionsDeploymentModal.server.name}}</h3>
+  </div>
+  <div class="modal-body" id="modal-body">
+    <div ng-repeat="line in versionsDeploymentModal.server.logs">
+      <div class="row">
+        <div class="col">
+          [{{line.date | date: 'dd/MM HH:mm:ss'}}] [<span ng-class="{'text-danger': line.level === 'INFO'}">{{line.level}}</span>] {{line.message}}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn" ng-class="{'btn-outline-success': versionsDeploymentModal.server.status === 'SUCCEED', 'btn-outline-danger': versionsDeploymentModal.server.status === 'FAILED', 'btn-outline-primary': versionsDeploymentModal.server.status === 'IN-PROGRESS','btn-outline-warning': versionsDeploymentModal.server.status === 'PENDING' }" type="button" ng-click="versionsDeploymentModal.close()">Fermer</button>
+  </div>
+</div>

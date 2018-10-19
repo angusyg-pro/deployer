@@ -1,0 +1,103 @@
+#!/usr/bin/env node
+
+const http = require('http');
+const app = require('../app');
+const deploymentService = require('../services/deployments');
+const socketIO = require('../lib/socketio');
+const logger = require('../lib/logger');
+
+/**
+ * Norme en nombre, string ou booléen false
+ * @function normalizePort
+ * @private
+ * @param   {Number|String} val - valeur à normer
+ * @returns {Number|String|boolean} valeur du port
+ */
+function normalizePort(val) {
+  const port = parseInt(val, 10);
+  if (Number.isNaN(port)) return val;
+  if (port >= 0) return port;
+  return false;
+}
+
+// Récupère le port à partir de l'application Express
+const port = normalizePort(app.get('port'));
+
+/**
+ * Listener des erreurs du serveur HTTP
+ * @function onError
+ * @private
+ * @param  {external:Error} error - erreur du serveur
+ */
+function onError(error) {
+  if (error.syscall !== 'listen') throw error;
+
+  const bind = typeof port === 'string' ? `Pipe ${port}` : `Port ${port}`;
+
+  // Gère des erreurs spécifiques avec des messages compréhensibles
+  switch (error.code) {
+    case 'EACCES':
+      logger.fatal(`${bind} requiert des droits plus élevés`);
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      logger.fatal(`${bind} est déjà utilisé`);
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+// Création du serveur HTTP
+const server = http.createServer(app);
+
+// Ecoute du serveur sur le port configuré
+server.listen(port, () => {
+  logger.info(`Serveur démarré sur le port ${port}`);
+  // Pour les tests
+  app.emit('appStarted');
+  // Pour pm2
+  if (process.env.PM2) process.send('ready');
+  // Ouverture du serveur de socket
+  socketIO.setServer(server);
+});
+
+// Capte toutes les erreurs serveur
+server.on('error', onError);
+
+/**
+ * Arrête le serveur gracieusement en attendant la fin des requêtes en cours
+ * force l'arrêt au bout de 5s
+ * @function gracefulShutdown
+ * @private
+ */
+function gracefulShutdown() {
+  logger.info('Arrêt du serveur en cours ...');
+
+  // Annulation du déploiement en cours
+  deploymentService.cancelDeploymentOnShutdown()
+    .then(() => {
+      server.close(() => {
+        logger.info('Serveur arrêté');
+        process.exit(0);
+      });
+    })
+    .catch((err) => {
+      logger.error(err);
+      server.close(() => {
+        logger.info('Serveur arrêté');
+        process.exit(0);
+      });
+    });
+
+  // Force close server after 5secs
+  setTimeout((e) => {
+    logger.warn('Arrêt forcé du serveur', e);
+    process.exit(1);
+  }, 5000);
+}
+
+// Capte les signaux externes pour l'arrêt en douceur
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);

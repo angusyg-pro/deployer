@@ -1,0 +1,13 @@
+{
+  "extends": [
+    "plugin:angular/johnpapa"
+  ],
+  "rules": {
+    "angular/file-name": 0
+  },
+  "env": {
+    "browser": true,
+    "es6": true,
+    "mocha": true
+  }
+}

@@ -1,0 +1,157 @@
+#versions {
+  margin-top: 50px;
+
+  .modified {
+    border-color: blue;
+  }
+
+  .btn:focus {
+    outline: 0;
+    box-shadow: none;
+  }
+
+  .card {
+    border: 1px solid $card-border-color;
+  }
+
+  .modal-lg {
+    max-width: 1300px;
+
+    .modal-content {
+      max-width: 1300px;
+    }
+  }
+
+  .section-title {
+    padding-bottom: 15px;
+    padding-top: 15px;
+
+    &:hover {
+      cursor: pointer;
+    }
+  }
+
+  .control-card {
+    .card-header {
+      background-color: $card-header-background-color;
+    }
+
+    .btn + .btn {
+      margin-top: 5px;
+    }
+  }
+
+  .deployment-servers {
+    margin-top: 20px;
+  }
+
+  .details-card {
+    .card-header {
+      background-color: $card-header-background-color;
+    }
+
+    .infos-card {
+      .control-panel .form-group {
+        margin-bottom: 5px;
+      }
+
+      .badge {
+        margin: 5px;
+      }
+    }
+
+    .server-card {
+      &.card {
+        margin-bottom: 15px;
+      }
+
+      .card-header {
+        margin: 0;
+        padding: 0;
+
+        &:hover {
+          cursor: pointer;
+        }
+      }
+
+      .server-name {
+        padding-top: 12px;
+        padding-bottom: 12px;
+        padding-right: 0;
+      }
+
+      .server-del {
+        padding-top: 12px;
+        padding-bottom: 12px;
+      }
+
+      .server-dl {
+        color: $dl-color;
+
+        &:hover {
+          color: $hover-color;
+        }
+      }
+
+      .standalone {
+        margin-bottom: 10px;
+
+        a.btn {
+          margin-left: 5px;
+        }
+      }
+    }
+
+    .deployment-card {
+      .card-body {
+        padding-top: 10px;
+        padding-bottom: 10px;
+      }
+
+      &:hover {
+        cursor: pointer;
+      }
+
+      .btn-bar {
+        margin-top: 5px;
+      }
+    }
+
+    .histo-card {
+      padding-left: 15px;
+      padding-right: 15px;
+      margin-bottom: 30px;
+
+      .card-header {
+        padding: 0;
+
+        .server-status {
+          padding: 12px 0 12px 20px;
+        }
+
+        .server-btn {
+          padding: 12px 0;
+
+          + .server-btn {
+            padding-left: 5px;
+          }
+        }
+      }
+
+      .card-body {
+        padding: 10px 0;
+      }
+    }
+  }
+}
+
+#versions-deployment-modal {
+  .modal-body {
+    overflow-y: auto;
+    max-height: 42rem;
+  }
+
+  p {
+    margin: 0.5rem;
+  }
+}

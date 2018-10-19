@@ -1,0 +1,202 @@
+<div class="container-fluid" id="versions">
+  <div class="row justify-content-center">
+    <div class="col-2">
+      <!-- Carte de gestion des contrôles -->
+      <div class="card control-card">
+        <!-- <div class="card-header text-center">
+          Panneau de contrôle
+        </div> -->
+        <div class="card-body">
+          <div class="">
+            <div class="m-auto">
+              <span class="btn btn-outline-primary col" ng-click="versions.addVersion()">Nouvelle version</span>
+              <span class="btn btn-outline-primary col" ng-class="{'disabled': versions.getActiveVersions() === 0}" ng-click="versions.pauseAll()">Tout mettre en pause ({{versions.getActiveVersions()}})</span>
+              <span class="btn btn-outline-primary col" ng-class="{'disabled': versions.getPausedVersions() === 0}" ng-click="versions.unpauseAll()">Tout activer ({{versions.getPausedVersions()}})</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-8">
+      <!-- Carte des détails des versions -->
+      <div ng-if="versions.list.length > 0" class="card details-card">
+        <!-- <div class="card-header text-center">Versions</div> -->
+        <div class="card-body">
+          <form class="form">
+            <div class="form-group">
+              <select class="form-control m-auto col-5" ng-change="versions.selectVersion()" ng-model="versions.selected">
+                  <option ng-repeat="version in versions.list" ng-value="version">{{versions.versionName(version)}}</option>
+                </select>
+            </div>
+            <div class="form-group form-inline">
+              <div class="m-auto">
+                <span class="btn btn-outline-primary" ng-click="versions.deployVersion()">Lancer un déploiement</span>
+              </div>
+            </div>
+            <h4 class="section-title" ng-click="historyCollapsed = !historyCollapsed">Déploiement(s)</h4>
+            <div class="row" uib-collapse="historyCollapsed">
+              <div ng-repeat="deployment in versions.selected.deployments | orderBy: 'date' : true" class="col-2">
+                <div class="card deployment-card">
+                  <div class="card-body text-white text-center" ng-class="{'bg-success': versions.getType(deployment.status, deployment) === 'success', 'bg-danger': versions.getType(deployment.status, deployment) === 'danger', 'bg-primary': versions.getType(deployment.status, deployment) === 'primary', 'bg-secondary': versions.getType(deployment.status, deployment) === 'secondary', 'bg-warning': versions.getType(deployment.status, deployment) === 'warning'}">
+                    <div>
+                      <div class="row" ng-click="versions.selectDeployment(deployment)">
+                        <span class="col">{{deployment.date | date: 'dd/MM/yyyy HH:mm:ss' }}</span><br/>
+                      </div>
+                      <div class="row">
+                        <span class="col-12 text-center">{{versions.convertStatus(deployment.status)}}</span>
+                      </div>
+                    </div>
+                    <div class="row btn-bar">
+                      <span ng-if="deployment.status !== 'PENDING'" class="btn btn-outline-light btn-sm m-auto" ng-click="versions.getDeploymentLog(deployment)">Log</span>
+                      <span ng-if="deployment.status === 'PENDING' || deployment.status === 'IN-PROGRESS'" class="btn btn-outline-light btn-sm m-auto" ng-click="versions.cancelDeployment(deployment)">Annuler</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 deployment-servers">
+              <div class="row">
+                <div ng-repeat="server in versions.selectedDeployment.servers | orderBy: 'name'" class="col-4">
+                  <div>
+                    <div class="card histo-card">
+                      <div class="card-header text-white row" ng-class="{'bg-success': versions.getType(server.status) === 'success', 'bg-danger': versions.getType(server.status) === 'danger', 'bg-primary': versions.getType(server.status) === 'primary' }">
+                        <div class="col-8 server-status" ng-click="server.open = !server.open">
+                          <span>{{server.name}}</span>
+                        </div>
+                        <div class="col-2 server-btn">
+                          <span class="btn btn-outline-light btn-sm" ng-click="versions.getServerDeploymentLog(server)">Détail</span>
+                        </div>
+                        <div class="col-2 server-btn" ng-if="versions.getType(server.status) !== 'primary'">
+                          <a class="btn btn-outline-light btn-sm" ng-href="{{versions.getServerDeploymentLogFileUrl(server)}}">Log</a>
+                        </div>
+                      </div>
+                      <div class="card-body" uib-collapse="server.open">
+                        <ul class="list-group">
+                          <li class="list-group-item text-white text-center" ng-repeat="ear in server.ears | orderBy" ng-class="{'bg-success': versions.getType(ear.status) === 'success', 'bg-danger': versions.getType(ear.status) === 'danger', 'bg-primary': versions.getType(ear.status) === 'primary' }"
+                            ng-class="{'text-success': ear.status === 'SUCCEED', 'text-danger': ear.status === 'FAILED', 'text-primary': ear.status === 'IN-PROGRESS' }">
+                            <a ng-href="{{ear.url}}" class="text-white">{{ear.name}}</a>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <h4 class="section-title" ng-click="infosCollapsed = !infosCollapsed">Informations</h4>
+            <div class="row infos-card" uib-collapse="infosCollapsed">
+              <form name="infosForm">
+                <div class="col-6">
+                  <div class="form-group row">
+                    <label for="name" class="col-4 col-form-label">Nom</label>
+                    <input type="text" class="form-control col-8" id="name" name="name" required ng-model="versions.selected.name" ng-class="{'modified': versions.selected.name !== versions.originalVersion.name}">
+                  </div>
+                  <div class="form-group row">
+                    <label for="numero" class="col-4 col-form-label">Version application</label>
+                    <input type="text" class="form-control col-4" id="numero" name="numero" required ng-model="versions.selected.numero" ng-class="{'modified': versions.selected.numero !== versions.originalVersion.numero}">
+                  </div>
+                  <div class="form-group row">
+                    <div class="col-4">SNAPSHOT</div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" ng-model="versions.selected.snapshot" ng-change="versions.updateVersion()">
+                    </div>
+                  </div>
+                  <div class="form-group row">
+                    <div class="col-4">En pause</div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" ng-model="versions.selected.paused" ng-change="versions.updateVersion()">
+                    </div>
+                  </div>
+                  <div class="form-group row">
+                    <label for="name" class="col-4 col-form-label">Interval</label>
+                    <input type="text" class="form-control col-4" id="interval" name="interval" ng-model="versions.selected.configuration.interval" ng-class="{'modified': versions.selected.configuration.interval !== versions.originalVersion.configuration.interval}">
+                  </div>
+                  <div class="form-group row">
+                    <label for="mailMode" class="col-4 col-form-label">Mode de mailing</label><br/>
+                    <select class="form-control col-4" id="mailMode" ng-model="versions.selected.configuration.mailMode" ng-class="{'modified': versions.selected.configuration.mailMode !== versions.originalVersion.configuration.mailMode}">
+                        <option ng-repeat="mailMode in versions.mailModes" ng-value="mailMode.type">{{mailMode.label}}</option>
+                      </select>
+                  </div>
+                  <div class="form-group row">
+                    <form ng-submit="versions.addEmail()">
+                      <label for="newEmail" class="col-4 col-form-label">Email(s)</label><br/>
+                      <input class="form-control col-7" type="text" id="newEmail" ng-model="versions.newEmail"><br/>
+                      <button class="ml-auto btn btn-outline-success" type="submit" ng-class="{'disabled' : !versions.newEmail}" ng-click="versions.addEmail()">+</button>
+                    </form>
+                  </div>
+                  <div class="form-group row">
+                    <div class="ml-auto col-8">
+                      <a href="#" class="badge badge-pill badge-primary" ng-repeat="email in versions.selected.configuration.mailRecipients" ng-click="versions.deleteEmail(email)">{{email}}</a>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-6 control-panel">
+                  <div class="row">
+                    <div class="col-12">
+                      <div class="form-group row">
+                        <div class="m-auto col-4">
+                          <span class="btn btn-outline-primary form-control" ng-class="{'disabled': !versions.selected.name}" ng-click="versions.updateVersion()">Enregistrer</span>
+                        </div>
+                      </div>
+                      <div class="form-group row">
+                        <div class="m-auto col-4">
+                          <span class="btn btn-outline-danger form-control" ng-click="versions.deleteVersion()">Supprimer</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </form>
+          <h4 class="section-title" ng-click="serversCollapsed = !serversCollapsed">Serveurs ({{versions.selected.servers.length}})</h4>
+          <div class="row" uib-collapse="serversCollapsed">
+            <div ng-repeat="server in versions.selected.servers | orderBy: 'name'" class="col-6">
+              <div class="card server-card">
+                <div class="card-header row">
+                  <div class="col-11 server-name" ng-click="versions.openServer(server)">
+                    <span>{{server.name}} - {{server.ears.length}} EAR(S)</span>
+                  </div>
+                  <div class="col-1 server-del">
+                    <span class="btn btn-outline-danger btn-sm float-right" ng-click="versions.removeServer(server)">X</span>
+                  </div>
+                </div>
+                <div class="card-body" uib-collapse="versions.isCollapsed(server)">
+                  <ul class="list-group standalone">
+                    <li class="list-group-item form form-inline">
+                      <span class="align-middle">Standalone.xml</span>
+                      <a class="btn btn-outline-primary btn-sm float-right" ng-href="{{versions.getStandaloneUrl(server)}}">Télécharger</a>
+                      <a class="server-dl btn btn-outline-primary btn-sm float-right" ngf-select="versions.uploadStandalone(server, $file)" ngf-pattern="'text/xml'" accept="text/xml" />Envoyer</a>
+                    </li>
+                  </ul>
+                  <ul class="list-group">
+                    <li class="list-group-item" ng-repeat="ear in server.ears | orderBy">
+                      <span class="align-middle">{{ear}}</span>
+                      <span class="btn btn-outline-danger btn-sm float-right" ng-click="versions.removeEarFromServer(server, ear)">X</span>
+                    </li>
+                    <li class="list-group-item form form-inline">
+                      <form ng-submit="versions.addEarToServer(server)" class="form form-inline">
+                        <input type="text" class="form-control col-9" id="earname" placeholder="Nom ear" ng-model="server.newEar">
+                        <button type="submit" class="form-control btn btn-outline-success btn-sm ml-auto" ng-disabled="!server.newEar">+</button>
+                      </form>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="card">
+                <div class="card-header">
+                  <form ng-submit="versions.addServer()" class="form form-inline">
+                    <input type="text" class="form-control col-8 form-control-sm" id="serverName" placeholder="Nom serveur" ng-model="versions.newServer">
+                    <button type="button" class="btn btn-outline-success btn-sm ml-auto" ng-disabled="!versions.newServer" ng-click="versions.addServer()">+</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
