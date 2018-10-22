@@ -221,14 +221,14 @@ const start = (server, serverFolder) => {
         'run',
         '-d',
         '--name',
-        'test',
+        'deployer',
         '-v',
         `${path.join(serverFolder, 'configuration')}:/opt/jboss/eap-6.4.8/standalone/configuration`,
         '-v',
         `${path.join(serverFolder, 'deployments')}:/opt/jboss/eap-6.4.8/standalone/deployments`,
         '-v',
         `${path.join(serverFolder, 'log')}:/opt/jboss/eap-6.4.8/standalone/log`,
-        'jboss:1.0',
+        'jboss:6.4.17',
       ], { cwd: serverFolder });
       // Log de suivi
       startCmd.stdout.on('data', data => deployerService.addDeploymentLog('INFO', data.toString(), server));
@@ -298,7 +298,7 @@ const stop = (server, serverFolder) => {
         'docker',
         'rm',
         '-f',
-        'test',
+        'deployer',
       ], { cwd: serverFolder });
       // Suivi du déploiement
       stopCmd.stdout.on('data', data => deployerService.addDeploymentLog('INFO', `Nom du container: ${data.toString()}`, server));
