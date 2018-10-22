@@ -21,7 +21,6 @@ const multer = require('multer');
 const config = require('../config/app');
 const deployerService = require('./deployer');
 const Version = require('../models/version');
-const socketIO = require('../lib/socketio');
 const logger = require('../lib/logger');
 const { ApiError } = require('../lib/errors');
 
@@ -223,11 +222,11 @@ const start = (server, serverFolder) => {
         '--name',
         'deployer',
         '-v',
-        `${path.join(serverFolder, 'configuration')}:/opt/jboss/eap-6.4.8/standalone/configuration`,
+        `${path.join(serverFolder, 'configuration')}:/opt/jboss/eap-6.4.17/standalone/configuration`,
         '-v',
-        `${path.join(serverFolder, 'deployments')}:/opt/jboss/eap-6.4.8/standalone/deployments`,
+        `${path.join(serverFolder, 'deployments')}:/opt/jboss/eap-6.4.17/standalone/deployments`,
         '-v',
-        `${path.join(serverFolder, 'log')}:/opt/jboss/eap-6.4.8/standalone/log`,
+        `${path.join(serverFolder, 'log')}:/opt/jboss/eap-6.4.17/standalone/log`,
         'jboss:6.4.17',
       ], { cwd: serverFolder });
       // Log de suivi
@@ -237,7 +236,7 @@ const start = (server, serverFolder) => {
         // Log de fin
         if (code === 0) deployerService.addDeploymentLog('INFO', 'Démarrage du serveur terminé', server);
         else deployerService.addDeploymentLog('INFO', 'Démarrage du serveur en erreur', server);
-        resolve(code);
+        return resolve(code);
       });
     } catch (err) {
       return reject(new ApiError(err));
@@ -282,17 +281,20 @@ const cleanServer = (server, serverFolder) => {
  * @private
  * @param {Server} server       - serveur à arrêter
  * @param {string} serverFolder - dossier du serveur
+ * @param {boolean} forced      - flag indiquant si l'arrêt est forcé (timeout)
  * @return {Promise} résolue avec le code de sortie de l'arrêt
  */
-const stop = (server, serverFolder) => {
+const stop = (server, serverFolder, forced) => {
   logger.debugFuncCall(server, serverFolder);
   return new Promise(async (resolve, reject) => {
     try {
-      deployerService.addDeploymentLog('INFO', 'Arrêt du serveur', server);
-      // Nettoyage du serveur
-      await cleanServer(server, serverFolder);
-      // Environnement de test windows sans docker on n'arrête pas de serveur
-      if (process.env.LOCAL_DEPLOYMENT) return resolve(0);
+      deployerService.addDeploymentLog('INFO', `Arrêt ${forced ? 'forcé' : ''} du serveur`, server);
+      if (process.env.LOCAL_DEPLOYMENT) {
+        // Environnement de test windows sans docker on n'arrête pas de serveur
+        // Nettoyage du serveur
+        await cleanServer(server, serverFolder);
+        return resolve(0);
+      }
       // Arrêt du serveur
       const stopCmd = spawn('sudo', [
         'docker',
@@ -303,23 +305,12 @@ const stop = (server, serverFolder) => {
       // Suivi du déploiement
       stopCmd.stdout.on('data', data => deployerService.addDeploymentLog('INFO', `Nom du container: ${data.toString()}`, server));
       stopCmd.stderr.on('data', data => deployerService.addDeploymentLog('ERROR', data.toString(), server));
-      stopCmd.on('exit', (code) => {
+      stopCmd.on('exit', async (code) => {
         // Log de fin
-        if (code === 0) deployerService.addDeploymentLog('INFO', 'Arrêt du serveur terminé', server);
-        else deployerService.addDeploymentLog('INFO', 'Arrêt du serveur en erreur', server);
-        // Suppression de tous les fichiers du dossier de déploiement
-        const deploymentFolder = path.join(serverFolder, 'deployments');
-        const files = fs.readdirSync(deploymentFolder);
-        for (const file of files) {
-          // On supprime tous les fichiers sauf le rar webmethods
-          if (file !== 'webm-jmsra.rar') fs.removeSync(path.join(deploymentFolder, file));
-        }
-        // Copie du server.log du déploiement
-        const logFolder = path.join(serverFolder, 'log');
-        const serverLogFile = path.join(logFolder, 'server.log');
-        if (fs.existsSync(serverLogFile)) fs.copySync(serverLogFile, path.join(config.historyFolder, `${server._id}.log`));
-        // Nettoyage du dossier de log du serveur
-        fs.emptyDirSync(logFolder);
+        if (code === 0) deployerService.addDeploymentLog('INFO', `Arrêt ${forced ? 'forcé' : ''} du serveur terminé`, server);
+        else deployerService.addDeploymentLog('INFO', `Arrêt ${forced ? 'forcé' : ''} du serveur en erreur`, server);
+        // Nettoyage du serveur
+        await cleanServer(server, serverFolder);
         resolve(code);
       });
     } catch (err) {
@@ -354,6 +345,10 @@ const checkServerStatus = (server, lastVersionEars) => {
     try {
       deployerService.addDeploymentLog('INFO', 'Attente de la fin du déploiement', server);
       let serverStatus = 'SUCCEED';
+      // Interval entre 2 vérification de statut d'EAR
+      const intervalMilliseconds = 2000;
+      // Timeout avant arrêt forcé
+      let beforeTimeout = 180000;
       // On vérifie toutes les 2s si les EARs ont fini leur déploiement
       const interval = setInterval((srv, lv) => {
         try {
@@ -385,7 +380,16 @@ const checkServerStatus = (server, lastVersionEars) => {
             // Si tous les EAR ont terminé leur déploiement, on arrête d'attendre
             clearInterval(interval);
             // Renvoie du statut du serveur
-            resolve(serverStatus);
+            return resolve(serverStatus);
+          }
+          beforeTimeout -= intervalMilliseconds;
+          if (beforeTimeout < 0) {
+            // Log deploiement
+            deployerService.addDeploymentLog('ERROR', 'Timeout lors du deploiement du serveur', server);
+            // Arrêt de l'attente du déploiement
+            clearInterval(interval);
+            // Renvoie du statut du serveur en timeout
+            return resolve('SERVER_DEPLOYMENT_TIMEOUT');
           }
         } catch (err) {
           // Log deploiement
@@ -393,14 +397,14 @@ const checkServerStatus = (server, lastVersionEars) => {
           // Arrêt de l'attente du déploiement
           clearInterval(interval);
           // Renvoie du statut du serveur en erreur
-          resolve('FAILED');
+          return resolve('FAILED');
         }
-      }, 2000, server, lastVersionEars);
+      }, intervalMilliseconds, server, lastVersionEars);
     } catch (err) {
       // Log deploiement
       deployerService.addDeploymentLog('ERROR', `Erreur lors de l'attente du déploiement du serveur: ${err.message}`, server);
       // Renvoie du statut du serveur en erreur
-      resolve('FAILED');
+      return resolve('FAILED');
     }
   });
 };
@@ -463,12 +467,11 @@ service.deploy = (server, serverFolder, lastVersionEars) => {
     try {
       // Démarrage du serveur
       await start(server, serverFolder);
-      // Attente de la fin du déploiement
-      const status = await checkServerStatus(server, lastVersionEars);
+      const status = await checkServerStatus(server, lastVersionEars, serverFolder);
       // Arrêt du serveur
-      await stop(server, serverFolder);
+      await stop(server, serverFolder, status === 'SERVER_DEPLOYMENT_TIMEOUT');
       // Renvoie du statut du serveur
-      return resolve(status);
+      return resolve(status === 'SERVER_DEPLOYMENT_TIMEOUT' ? 'FAILED' : status);
     } catch (err) {
       // Log deploiement
       deployerService.addDeploymentLog('ERROR', `Erreur lors du déploiement: ${err.message}`, server);
