@@ -101,6 +101,8 @@
 
       // En retour, création de version renvoyée
       modal.result.then((newVersion) => {
+        // Suppression des déploiements avant envoi de la version de base
+        if (newVersion.from) delete newVersion.from.deployments;
         versionsService.addVersion(newVersion)
           .then((version) => {
             // Ajout de la version aux versions courantes
