@@ -205,8 +205,6 @@
           vm.selected.configuration.mailRecipients.push(vm.newEmail);
           updateVersion()
             .then(() => {
-              // Non existant, ajout de l'email à la liste
-              vm.selected.configuration.mailRecipients.push(vm.newEmail);
               // Reset du champ email
               vm.newEmail = '';
               // Renew de l'oiriginal
@@ -349,8 +347,10 @@
     function updateVersion() {
       const deferred = $q.defer();
       if (vm.selected.name && vm.selected.numero) {
+        const newVersion = Object.assign({}, vm.selected);
+        delete newVersion.deployments;
         // Appel au service avec la version sélectionnée
-        versionsService.updateVersion(vm.selected)
+        versionsService.updateVersion(newVersion)
           .then(() => {
             toastService.success(`Version modifiée`);
             vm.originalVersion = JSON.parse(JSON.stringify(vm.selected));
@@ -500,7 +500,7 @@
           infos: () => {
             return {
               title: 'Confirmation',
-              message: `Etes-vous sûr de vouloir supprimer la serveur<br>${server.name} ?`
+              message: `Etes-vous sûr de vouloir supprimer le serveur<br>${server.name} ?`
             }
           },
         }
