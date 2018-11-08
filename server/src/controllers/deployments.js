@@ -29,7 +29,7 @@ controller.getDeployment = (req, res, next) => {
  * @param  {nextMiddleware}    next - fonction de callback vers le prochain middleware
  */
 controller.deployVersion = (req, res, next) => {
-  service.validateAndDeploy(req.params.idVersion)
+  service.validateAndDeploy(req.params.idVersion, true)
     .then(version => res.status(200).json(version))
     .catch(err => next(err));
 };

@@ -1,6 +1,7 @@
 /**
  * @fileoverview Deployment service
  * @module services/deployments
+ * @requires {@link external:child_process}
  * @requires {@link external:path}
  * @requires {@link external:fs-extra}
  * @requires {@link external:cron}
@@ -16,6 +17,7 @@
  * @requires lib/errors
  */
 
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs-extra');
 const { CronJob } = require('cron');
@@ -55,10 +57,10 @@ const sendMail = (version, deployment) => {
     // Inspection du détail pour construire le corps du mail
     for (const server of deployment.servers) {
       // Inspection de tous les serveurs
-      body += `<br/><h3><font color="${server.status === 'FAILED' ? 'red' : 'green'}">${deployment.status === 'FAILED' ? 'KO' : 'OK'}</font> : Serveur ${server.name} - <a href="${config.serverLocation}:${config.port}/versions/${version._id}/deployments/${deployment._id}/servers/${server._id}/serverlog">server.log</a></h3>`;
+      body += `<br/><h3><font color="${server.status === 'FAILED' ? 'red' : 'green'}">${server.status === 'FAILED' ? 'KO' : 'OK'}</font> : Serveur ${server.name} - <a href="${config.serverLocation}:${config.port}/versions/${version._id}/deployments/${deployment._id}/servers/${server._id}/serverlog">server.log</a></h3>`;
       for (const ear of server.ears) {
         // Inspection de tous les ears du serveur
-        body += `<font color="${server.status === 'FAILED' ? 'red' : 'green'}">${deployment.status === 'FAILED' ? 'KO' : 'OK'}</font> : ${ear.name} - <a href="${ear.url}">Télécharger</a><br/>`;
+        body += `<font color="${server.status === 'FAILED' ? 'red' : 'green'}">${server.status === 'FAILED' ? 'KO' : 'OK'}</font> : ${ear.name} - <a href="${ear.url}">Télécharger</a><br/>`;
         // Incrément du nombre d'EAR total
         cptTotal += 1;
         // Incrément du nombre d'EAR total en erreur
@@ -100,9 +102,11 @@ const deployServers = (version, deployment) => {
         deployment.servers.push(deploymentServer);
         // Envoi de l'ajout du serveur aux clients connectés
         socketIO.emit('deployment-progress', deployment);
-        // Téléchargement des EARS
         const serverFolder = path.normalize(`${config.deployerFolder}/${version.name}/${server.name}`);
         const deploymentFolder = path.normalize(`${serverFolder}/deployments`);
+        // Nettoyage du serveur
+        await serverService.cleanServer(deploymentServer, serverFolder);
+        // Téléchargement des EARS
         const lastVersionEars = await artifactoryService.downloadLastVersionEars(version.numero, version.snapshot, deploymentServer, deploymentFolder);
         // Attente du déploiement
         const serverStatus = await serverService.deploy(deploymentServer, serverFolder, lastVersionEars);
@@ -244,6 +248,38 @@ const createNewDeployment = (version) => {
 };
 
 /**
+ * Arrête le container docker
+ * @private
+ * @return {Promise} résolue avec le code de sortie de l'arrêt
+ */
+const stopContainer = () => {
+  logger.debugFuncCall();
+  return new Promise(async (resolve, reject) => {
+    try {
+      logger.info('Arrêt du container docker du déploiement');
+      // Arrêt du container
+      const stopCmd = spawn('sudo', [
+        'docker',
+        'rm',
+        '-f',
+        'deployer',
+      ]);
+      // Suivi de l'arrêt
+      stopCmd.stdout.on('data', data => logger.info(`Arrêt du container: ${data.toString()}`));
+      stopCmd.stderr.on('data', data => logger.error(`Arrêt du container: ${data.toString()}`));
+      stopCmd.on('exit', async (code) => {
+        // Log de fin
+        if (code === 0) logger.info('Arrêt du container terminé');
+        else logger.info('Arrêt du container en erreur');
+        resolve(code);
+      });
+    } catch (err) {
+      return reject(new ApiError(err));
+    }
+  });
+};
+
+/**
  * Créé un nouvel interval pour une version
  * @param  {Version} version - version à déployer
  */
@@ -348,6 +384,8 @@ service.cancelDeploymentOnShutdown = (dep) => {
           await version.save();
           // Suppression du déploiement
           await Deployment.remove({ _id: deployment._id });
+          // Arrêt du container docker
+          await stopContainer();
           // retour
           return resolve();
         }
@@ -387,10 +425,15 @@ service.cancelDeployment = (idDeployment) => {
           // retour
           resolve();
           // Restart de l'application pour annuler tous les traitements en cours
-          if (restart) process.exit(0);
+          if (restart) {
+            // Arrêt du container docker
+            await stopContainer();
+            process.exit(0);
+          }
+        } else {
+          // Aucun déploiement trouvé on renvoie une erreur
+          return reject(new ApiError('VERSION_NOT_FOUND', 'La version associée au déploiement n\'a pas été trouvée'));
         }
-        // Aucun déploiement trouvé on renvoie une erreur
-        return reject(new ApiError('VERSION_NOT_FOUND', 'La version associée au déploiement n\'a pas été trouvée'));
       }
       // Aucun déploiement trouvé on renvoie une erreur
       return reject(new ApiError('DEPLOYMENT_NOT_FOUND', `Aucun déploiement trouvé avec l'id '${idDeployment}'`));
@@ -455,10 +498,11 @@ service.getDeploymentLog = (idServer) => {
 
 /**
  * Valide et démarre un déploiement de version
- * @param  {string} idVersion - id de la version à déployer
+ * @param {string} idVersion - id de la version à déployer
+ * @param {[boolean]} immediate - flag qui indique si le lancement doit se faire à la suite de la création
  * @return {Promise} résolue si ok, rejettée si erreur
  */
-service.validateAndDeploy = (idVersion) => {
+service.validateAndDeploy = (idVersion, immediate) => {
   logger.debugFuncCall(idVersion);
   return new Promise(async (resolve, reject) => {
     let version;
@@ -478,8 +522,8 @@ service.validateAndDeploy = (idVersion) => {
         deleted,
         deployment,
       });
-      // On lance le déploiement si possible
-      //if (!inProgress) deployVersion(version, deployment);
+      // On lance le déploiement si demandé
+      if (immediate) findNextDeployment();
     } catch (err) {
       service.cancelDeploymentOnShutdown(deployment);
       return reject(new ApiError(err));

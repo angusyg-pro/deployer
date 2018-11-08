@@ -246,12 +246,11 @@ const start = (server, serverFolder) => {
 
 /**
  * Nettoie les dossiers du serveur de déploiement et archive le fichier de log (server.log)
- * @private
  * @param {Server} server       - serveur à arrêter
  * @param {string} serverFolder - dossier du serveur
  * @return {Promise} rejettée si erreur
  */
-const cleanServer = (server, serverFolder) => {
+service.cleanServer = (server, serverFolder) => {
   logger.debugFuncCall(server, serverFolder);
   return new Promise(async (resolve, reject) => {
     try {
@@ -292,7 +291,7 @@ const stop = (server, serverFolder, forced) => {
       if (process.env.LOCAL_DEPLOYMENT) {
         // Environnement de test windows sans docker on n'arrête pas de serveur
         // Nettoyage du serveur
-        await cleanServer(server, serverFolder);
+        await service.cleanServer(server, serverFolder);
         return resolve(0);
       }
       // Arrêt du serveur
@@ -310,7 +309,7 @@ const stop = (server, serverFolder, forced) => {
         if (code === 0) deployerService.addDeploymentLog('INFO', `Arrêt ${forced ? 'forcé' : ''} du serveur terminé`, server);
         else deployerService.addDeploymentLog('INFO', `Arrêt ${forced ? 'forcé' : ''} du serveur en erreur`, server);
         // Nettoyage du serveur
-        await cleanServer(server, serverFolder);
+        await service.cleanServer(server, serverFolder);
         resolve(code);
       });
     } catch (err) {
