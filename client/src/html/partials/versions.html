@@ -53,30 +53,30 @@
                   </div>
                 </div>
               </div>
-            </div>
-            <div class="col-12 deployment-servers">
-              <div class="row">
-                <div ng-repeat="server in versions.selectedDeployment.servers | orderBy: 'name'" class="col-4">
-                  <div>
-                    <div class="card histo-card">
-                      <div class="card-header text-white row" ng-class="{'bg-success': versions.getType(server.status) === 'success', 'bg-danger': versions.getType(server.status) === 'danger', 'bg-primary': versions.getType(server.status) === 'primary' }">
-                        <div class="col-8 server-status" ng-click="server.open = !server.open">
-                          <span>{{server.name}}</span>
+              <div class="col-12 deployment-servers">
+                <div class="row">
+                  <div ng-repeat="server in versions.selectedDeployment.servers | orderBy: 'name'" class="col-4">
+                    <div>
+                      <div class="card histo-card">
+                        <div class="card-header text-white row" ng-class="{'bg-success': versions.getType(server.status) === 'success', 'bg-danger': versions.getType(server.status) === 'danger', 'bg-primary': versions.getType(server.status) === 'primary' }">
+                          <div class="col-8 server-status" ng-click="server.open = !server.open">
+                            <span>{{server.name}}</span>
+                          </div>
+                          <div class="col-2 server-btn">
+                            <span class="btn btn-outline-light btn-sm" ng-click="versions.getServerDeploymentLog(server)">Détail</span>
+                          </div>
+                          <div class="col-2 server-btn" ng-if="versions.getType(server.status) !== 'primary'">
+                            <a class="btn btn-outline-light btn-sm" ng-href="{{versions.getServerDeploymentLogFileUrl(server)}}">Log</a>
+                          </div>
                         </div>
-                        <div class="col-2 server-btn">
-                          <span class="btn btn-outline-light btn-sm" ng-click="versions.getServerDeploymentLog(server)">Détail</span>
+                        <div class="card-body" uib-collapse="server.open">
+                          <ul class="list-group">
+                            <li class="list-group-item text-white text-center" ng-repeat="ear in server.ears | orderBy" ng-class="{'bg-success': versions.getType(ear.status) === 'success', 'bg-danger': versions.getType(ear.status) === 'danger', 'bg-primary': versions.getType(ear.status) === 'primary' }"
+                              ng-class="{'text-success': ear.status === 'SUCCEED', 'text-danger': ear.status === 'FAILED', 'text-primary': ear.status === 'IN-PROGRESS' }">
+                              <a ng-href="{{ear.url}}" class="text-white">{{ear.name}}</a>
+                            </li>
+                          </ul>
                         </div>
-                        <div class="col-2 server-btn" ng-if="versions.getType(server.status) !== 'primary'">
-                          <a class="btn btn-outline-light btn-sm" ng-href="{{versions.getServerDeploymentLogFileUrl(server)}}">Log</a>
-                        </div>
-                      </div>
-                      <div class="card-body" uib-collapse="server.open">
-                        <ul class="list-group">
-                          <li class="list-group-item text-white text-center" ng-repeat="ear in server.ears | orderBy" ng-class="{'bg-success': versions.getType(ear.status) === 'success', 'bg-danger': versions.getType(ear.status) === 'danger', 'bg-primary': versions.getType(ear.status) === 'primary' }"
-                            ng-class="{'text-success': ear.status === 'SUCCEED', 'text-danger': ear.status === 'FAILED', 'text-primary': ear.status === 'IN-PROGRESS' }">
-                            <a ng-href="{{ear.url}}" class="text-white">{{ear.name}}</a>
-                          </li>
-                        </ul>
                       </div>
                     </div>
                   </div>
