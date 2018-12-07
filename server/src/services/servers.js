@@ -234,7 +234,10 @@ const start = (server, serverFolder) => {
       startCmd.stderr.on('data', data => deployerService.addDeploymentLog('ERROR', data.toString(), server));
       startCmd.on('exit', (code) => {
         // Log de fin
-        if (code === 0) deployerService.addDeploymentLog('INFO', 'Démarrage du serveur terminé', server);
+        if (code === 0) {
+          deployerService.addDeploymentLog('INFO', 'Démarrage du serveur terminé', server);
+          reject(new ApiError('Erreur lors du démarrage du serveur'));
+        }
         else deployerService.addDeploymentLog('INFO', 'Démarrage du serveur en erreur', server);
         return resolve(code);
       });
