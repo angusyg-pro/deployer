@@ -449,7 +449,6 @@ service.getServerStandalone = (idVersion, idServer) => {
  * @return {Promise} rejettée si erreur
  */
 service.postServerStandalone = (req, res) => new Promise((resolve, reject) => {
-
   // Extrait le fichier envoyé et le sauvegarde sur le disque
   upload(req, res, (err) => {
     if (err) return reject(new ApiError(err));
