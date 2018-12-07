@@ -552,9 +552,9 @@
       versionsService.cancelDeployment(vm.selected, deployment)
         .then(() => {
           // Déselection du déploiement supprimé s'il est sélectionné actuellement
-          if (vm.selectedDeployment._id === deployment._id) vm.selectedDeployment = null;
+          if (vm.selectedDeployment && vm.selectedDeployment._id === deployment._id) vm.selectedDeployment = null;
           // Suppression du déploiement local
-          vm.selected.deployments.splice(vm.selected.deployments.findIndex(d => d._id === deployment._id));
+          vm.selected.deployments.splice(vm.selected.deployments.findIndex(d => d._id === deployment._id), 1);
           toastService.success(`Déploiement de la version ${versionName(vm.selected)} annulé`);
         })
         .catch(error => errorHandlerService.handleServerError(error, 'Une erreur est survenue lors de l\'annulation du déploiement'));
