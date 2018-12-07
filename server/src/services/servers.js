@@ -236,10 +236,10 @@ const start = (server, serverFolder) => {
         // Log de fin
         if (code === 0) {
           deployerService.addDeploymentLog('INFO', 'Démarrage du serveur terminé', server);
-          reject(new ApiError('Erreur lors du démarrage du serveur'));
+          return resolve(code);
         }
-        else deployerService.addDeploymentLog('INFO', 'Démarrage du serveur en erreur', server);
-        return resolve(code);
+        deployerService.addDeploymentLog('INFO', 'Démarrage du serveur en erreur', server);
+        return reject(new ApiError('Erreur lors du démarrage du serveur'));
       });
     } catch (err) {
       return reject(new ApiError(err));
