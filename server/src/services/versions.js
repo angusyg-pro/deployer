@@ -300,6 +300,7 @@ service.updateVersion = (id, version) => {
       if (version.configuration.interval) {
         try {
           // Test du format de l'interval
+          // eslint-disable-next-line no-new
           new CronTime(version.configuration.interval);
         } catch (err) {
           return reject(new ApiError('BAD_INTERVAL_FORMAT', 'Le format de l\'interval n\'est pas valide'));

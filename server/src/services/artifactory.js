@@ -220,22 +220,29 @@ service.downloadLastVersionEars = (numero, versionSnapshot, server, deploymentFo
               const earInfos = {};
               // Récupération de la dernière version de l'EAR disponible
               const lastVersion = getLastVersionFromHtml(numero, versionSnapshot, body, server);
-              // Récupération de l'URL de la dernière version de l'EAR
-              earInfos.url = await getLastVersionEARUrl(numero, versionSnapshot, ear.name, url, lastVersion, server);
-              // Téléchargement de l'EAR
-              const earLocalInfos = await downloadEAR(earInfos.url, deploymentFolder, server);
-              earInfos.path = earLocalInfos.path;
-              ear.name = earLocalInfos.localName;
-              ear.url = earInfos.url;
-              logger.debug(ear);
-              lastVersionEars.set(ear.name, earInfos);
-              return resolve();
+              if (lastVersion === null) {
+                deployerService.addDeploymentLog('ERROR', `Aucune version trouvée sur artifactory pour l'EAR ${ear.name}`, server);
+                reject(new ApiError(`Aucune version trouvée sur artifactory pour l'EAR ${ear.name}`));
+              } else {
+                // Récupération de l'URL de la dernière version de l'EAR
+                earInfos.url = await getLastVersionEARUrl(numero, versionSnapshot, ear.name, url, lastVersion, server);
+                // Téléchargement de l'EAR
+                const earLocalInfos = await downloadEAR(earInfos.url, deploymentFolder, server);
+                earInfos.path = earLocalInfos.path;
+                ear.name = earLocalInfos.localName;
+                ear.url = earInfos.url;
+                logger.debug(ear);
+                lastVersionEars.set(ear.name, earInfos);
+                resolve();
+              }
             }
             return reject(new ApiError(`Erreur lors de l'appel à l'url : ${url}`));
           });
         }));
       }
-      Promise.all(downloading).then(() => resolve(lastVersionEars));
+      Promise.all(downloading)
+        .then(() => resolve(lastVersionEars))
+        .catch(err => reject(err));
     } catch (err) {
       deployerService.addDeploymentLog('ERROR', `Erreur lors de la tentative de download: ${err}`, server);
       return reject(new ApiError(err));
