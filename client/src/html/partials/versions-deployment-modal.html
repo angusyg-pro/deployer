@@ -6,7 +6,7 @@
     <div ng-repeat="line in versionsDeploymentModal.deployment.logs">
       <div class="row">
         <div class="col">
-          [{{line.date | date: 'dd/MM HH:mm:ss'}}] [<span ng-class="{'text-danger': line.level === 'INFO'}">{{line.level}}</span>] {{line.message}}
+          [{{line.date | date: 'dd/MM HH:mm:ss'}}] [<span ng-class="{'text-primary': line.level === 'INFO', 'text-danger': line.level === 'ERROR'}">{{line.level}}</span>] {{line.message}}
         </div>
       </div>
     </div>
