@@ -81,6 +81,12 @@ const app = {
    * @type {string}
    */
   serverLocation: process.env.SERVER || 'localhost',
+
+  /**
+   * Nombre maximum de tentatives de téléchargement d'un EAR (si checksum en échec)
+   * @type {number}
+   */
+  maxNbDownloadAttempts: 3,
 };
 
 module.exports = app;

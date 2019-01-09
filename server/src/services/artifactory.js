@@ -2,7 +2,9 @@
  * @fileoverview Service d'intéraction avec Artifactory
  * @module services/artifactory
  * @requires {@link external:path}
- * @requires {@link external:fs}
+ * @requires {@link external:fs-extra}
+ * @requires {@link external:md5-file}
+ * @requires {@link external:firstline}
  * @requires config/app
  * @requires lib/proxy
  * @requires lib/logger
@@ -11,7 +13,9 @@
  */
 
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs-extra');
+const md5File = require('md5-file');
+const firstline = require('firstline');
 const config = require('../config/app');
 const ProxyService = require('../lib/proxy');
 const logger = require('../lib/logger');
@@ -158,31 +162,117 @@ const getLastVersionEARUrl = (numero, versionSnapshot, ear, url, lastVersion, se
 };
 
 /**
+ * Vérifie un EAR téléchargé avec son MD5 téléchargé du repositiory
+ * @param  {object} ear - informations sur l'EAR
+ * @return {Promise<boolean>} résolue avec le statut validé ou non, rejetée si erreur
+ */
+const checkDownloadedEAR = (ear) => {
+  logger.debugFuncCall(ear);
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Fichier local du MD5
+      const localMD5file = `${ear.path}.md5`;
+      logger.info(`LOCAL MD5 FILE: ${localMD5file}`);
+      // Récupération du MD5 du repository
+      const md5 = await firstline(localMD5file);
+      logger.info(`MD5 VALUE: ${md5}`);
+      // Calcul du checksum du fichier téléchargé
+      const hash = md5File.sync(ear.path);
+      logger.info(`HASH VALUE: ${hash}`);
+      // Comparaison
+      return resolve(hash === md5);
+    } catch (err) {
+      return reject(new ApiError(err));
+    }
+  });
+};
+
+/**
+ * Télécharge le fichier md5 d'un EAR
+ * @param  {string} url         - URL de l'EAR à télécharger
+ * @param  {string} folder      - dossier de déploiement
+ * @param  {Server} server      - serveur associé au téléchargement
+ * @return {Promise<void>} résolue si OK, rejetée si erreur
+ */
+const downloadEARMD5 = (url, ear, server) => {
+  logger.debugFuncCall(url, ear, server);
+  return new Promise(async (resolve, reject) => {
+    try {
+      deployerService.addDeploymentLog('INFO', `Téléchargement du MD5 de l'EAR ${ear.localName}`, server);
+      // Récupération d'un proxy
+      const proxifiedRequest = await ProxyService.getProxifiedRequest();
+      // URL du fichier MD5
+      const urlMD5 = url + '.md5';
+      // Téléchargement
+      proxifiedRequest(urlMD5)
+        .pipe(fs.createWriteStream(ear.md5Path)
+        .on('finish', () => {
+          deployerService.addDeploymentLog('INFO', `Téléchargement du MD5 de l'EAR '${ear.localName}' terminé`, server);
+          return resolve();
+        })
+        .on('error', err => {
+          throw new ApiError(err);
+        }));
+    } catch (err) {
+      deployerService.addDeploymentLog('ERROR', `Echec du téléchargement du MD5 de l'EAR '${ear.localName}'`, server);
+      return reject(new ApiError(err));
+    }
+  });
+};
+
+/**
  * Téléchargement d'un EAR dans le dossier de déploiement
  * @private
- * @param  {string} url    - URL de l'EAR à télécharger
- * @param  {string} folder - dossier de déploiement
- * @param  {Server} server - serveur associé au téléchargement
+ * @param  {string} url         - URL de l'EAR à télécharger
+ * @param  {string} folder      - dossier de déploiement
+ * @param  {Server} server      - serveur associé au téléchargement
+ * @param  {number} maxAttempts - Nombre de tentatives de téléchargement restantes (fichier corrompu ...)
  * @return {Promise<string>} résolue avec le chemin vers l'EAR téléchargé, rejettée si erreur
  */
-const downloadEAR = (url, folder, server) => {
+const downloadEAR = (url, folder, server, maxAttempts) => {
   logger.debugFuncCall(url, folder, server);
   return new Promise(async (resolve, reject) => {
     try {
-      deployerService.addDeploymentLog('INFO', `Téléchargement de '${url}' vers '${folder}`, server);
-      // Récupération d'un proxy
-      const proxifiedRequest = await ProxyService.getProxifiedRequest();
-      // Téléchargement de l'EAR dans le dossier de déploiement
+      // Vérification du nombre de tentatives de téléchargement
+      if (maxAttempts === 0) {
+        // Trop d'échecs
+        deployerService.addDeploymentLog('ERROR', `Echec du téléchargement de '${url}' après ${config.maxNbDownloadAttempts} tentatives`, server);
+        return reject(new ApiError(`Echec du téléchargement de '${url}' après ${config.maxNbDownloadAttempts} tentatives`));
+      }
+      // Nom de l'EAR à partir de l'URL
       const localName = url.substr(url.lastIndexOf('/') + 1);
+      // Informations sur l'EAR
       const earLocalInfos = {
         path: path.join(folder, localName),
         localName,
+        md5Path: `${path.join(folder, localName)}.md5`,
       };
+      if (config.maxNbDownloadAttempts !== maxAttempts) {
+        deployerService.addDeploymentLog('INFO', `Nouvelle tentative de téléchargement de '${url}' vers '${folder}`, server);
+      } else {
+        // Récupération si nécessaire du fichier MD5
+        if (!fs.existsSync(earLocalInfos.md5Path)) await downloadEARMD5(url, earLocalInfos, server);
+        deployerService.addDeploymentLog('INFO', `Téléchargement de '${url}' vers '${folder}`, server);
+      }
+      // Récupération d'un proxy
+      const proxifiedRequest = await ProxyService.getProxifiedRequest();
+      // Téléchargement de l'EAR dans le dossier de déploiement
       proxifiedRequest(url)
         .pipe(fs.createWriteStream(earLocalInfos.path))
-        .on('finish', () => {
+        .on('finish', async () => {
           deployerService.addDeploymentLog('INFO', `Téléchargement terminé de '${url}'`, server);
-          return resolve(earLocalInfos);
+          // Vérification de l'EAR
+          const isValidEAR = await checkDownloadedEAR(earLocalInfos);
+          if (isValidEAR) {
+            deployerService.addDeploymentLog('INFO', `Vérification MD5 de l'EAR '${earLocalInfos.localName}' OK`, server);
+            // Suppression du fichier MD5
+            fs.removeSync(earLocalInfos.md5Path);
+            return resolve(earLocalInfos);
+          } else {
+            deployerService.addDeploymentLog('INFO', `Echec de la vérification MD5 de l'EAR '${earLocalInfos.localName}'`, server);
+            // EAR corrompu => nouvelle tentative de téléchargement
+            return resolve(await downloadEAR(url, folder, server, maxAttempts--));
+          }
         })
         .on('error', err => reject(new ApiError(err)));
     } catch (err) {
@@ -227,7 +317,7 @@ service.downloadLastVersionEars = (numero, versionSnapshot, server, deploymentFo
                 // Récupération de l'URL de la dernière version de l'EAR
                 earInfos.url = await getLastVersionEARUrl(numero, versionSnapshot, ear.name, url, lastVersion, server);
                 // Téléchargement de l'EAR
-                const earLocalInfos = await downloadEAR(earInfos.url, deploymentFolder, server);
+                const earLocalInfos = await downloadEAR(earInfos.url, deploymentFolder, server, config.maxNbDownloadAttempts);
                 earInfos.path = earLocalInfos.path;
                 ear.name = earLocalInfos.localName;
                 ear.url = earInfos.url;

@@ -204,3 +204,15 @@
  * @external moment
  * @see http://momentjs.com/
  */
+
+ /**
+ * Get the MD5-sum of a given file, with low memory usage, even on huge files.
+ * @external md5-file
+ * @see https://github.com/roryrjb/md5-file
+ */
+
+ /**
+ * Npm module for Node JS that reads the first line of a file.
+ * @external firstline
+ * @see https://github.com/pensierinmusica/firstline
+ */
