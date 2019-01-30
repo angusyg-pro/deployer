@@ -1,0 +1,9 @@
+version: '3'
+services:
+  deployer:
+    image: deployer
+    volumes:
+      - ./logs:/usr/src/app/logs
+      - ./data:/usr/src/app/data
+    ports:
+      - "3001:3000"
