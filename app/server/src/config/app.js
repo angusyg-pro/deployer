@@ -21,7 +21,7 @@ const app = {
    * Path du fichier de log du serveur
    * @type {string}
    */
-  logFile: path.join(__dirname, '../../../logs/combined.log'),
+  logFile: path.join(__dirname, '../../../../logs/combined.log'),
 
   /**
    * Type de sortie de log (JSON ou NORMAL)
@@ -62,19 +62,19 @@ const app = {
    * Dossier des serveurs de déploiement
    * @type {string}
    */
-  deployerFolder: path.join(__dirname, '../../../data/servers'),
+  deployerFolder: path.join(__dirname, '../../../../data/servers'),
 
   /**
    * Dossier de template d'un serveur de déploiement
    * @type {string}
    */
-  serverTemplateFolder: path.join(__dirname, '../../../data/jboss-template'),
+  serverTemplateFolder: path.join(__dirname, '../../../../data/jboss-template'),
 
   /**
    * Dossier d'historique des log de déploiement
    * @type {string}
    */
-  historyFolder: path.join(__dirname, '../../../data/history'),
+  historyFolder: path.join(__dirname, '../../../../data/history'),
 
   /**
    * Adresse du serveur
